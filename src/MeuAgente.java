@@ -5,7 +5,6 @@ import java.awt.Rectangle;
 import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
 
-
 public class MeuAgente extends Agente {
 
     Color color;
@@ -42,7 +41,10 @@ public class MeuAgente extends Agente {
 
     // Ponto de entrada da vaga (centro da abertura 385-415)
     static final double TARGET_X  = 400;
-    static final double TARGET_Y  = 25;
+
+    // CORREÇÃO: Alvo aprofundado na vaga (era 25)
+    static final double TARGET_Y  = 15;
+
     // Ponto de aproximação: alinha X nesta altura antes de subir
     static final double APPROACH_Y = 180;
 
@@ -193,9 +195,6 @@ public class MeuAgente extends Agente {
         if (!start) return;
 
         // ── FASE 0: navegar até o ponto de aproximação ────────────────
-        // Usa atan2 para o alvo real (TARGET_X, APPROACH_Y), não apenas X.
-        // Isso garante que o caminhão sempre tem um angAlvo válido,
-        // independente do ang atual.
         if (fase == 0) {
             double dx = TARGET_X - X;
             double dy = APPROACH_Y - Y;
@@ -227,8 +226,8 @@ public class MeuAgente extends Agente {
             rodaVolante(defuzzVolante(muVolanteEsq, muVolanteReto, muVolanteDir));
             acelera(defuzzAcel(muAcelRe, muAcelPara, muAcelFrente));
 
-            // Chegou perto do ponto de aproximação
-            if (dist < 30) {
+            // CORREÇÃO: Garante o alinhamento de X e Y antes de mudar de fase
+            if (Math.abs(dx) < 5 && Math.abs(dy) < 15) {
                 vel = 0;
                 angVolante = 0;
                 volanteinfvalue = 0;
@@ -273,7 +272,8 @@ public class MeuAgente extends Agente {
             double muVolanteReto = muAngFrente;
             double muVolanteDir  = Math.max(muAngMuitoDir, muAngDir * 0.8);
 
-            if (Math.abs(dx) > 5) {
+            // CORREÇÃO: Proíbe correções laterais perto da parede (Y < 60)
+            if (Math.abs(dx) > 5 && Y > 60) {
                 double muXEsq = rampDown(dx, -30, -3); // Ativa se o caminhão está muito à direita
                 double muXDir = rampUp(dx,    3,  30); // Ativa se o caminhão está muito à esquerda
 
@@ -283,25 +283,27 @@ public class MeuAgente extends Agente {
                 muVolanteDir = Math.max(muVolanteDir, muXDir * 1.0);
             }
 
-            double muAcelFrente = (dist > 15) ? 0.8 : 0.0;
-            double muAcelPara   = (dist <= 15) ? 1.0 : 0.0;
+            // CORREÇÃO: Diminui a zona de frenagem para ele entrar mais fundo
+            double muAcelFrente = (dist > 5) ? 0.8 : 0.0;
+            double muAcelPara   = (dist <= 5) ? 1.0 : 0.0;
             double muAcelRe     = 0;
 
             rodaVolante(defuzzVolante(muVolanteEsq, muVolanteReto, muVolanteDir));
             acelera(defuzzAcel(muAcelRe, muAcelPara, muAcelFrente));
 
             // Parada: Y próximo do topo e X dentro da abertura real (385-415)
-            // Chegou: centro do caminhão passou pela linha da barreira (Y=40)
-            // A barreira ocupa Y=0..40; o caminhão entra quando Y < 42
             boolean dentroAbertura = (X > 384 && X < 416);
-            boolean entrou         = (Y < 42);
+
+            // CORREÇÃO: Exige que suba mais na tela para completar o estacionamento
+            boolean entrou = (Y < 20);
+
             if (dentroAbertura && entrou) {
                 fase = 3;
             }
             return;
         }
 
-        // ── FASE 3: parado na vaga ─────────────────────────────────────
+        //parado na vaga
         if (fase == 3) {
             rodaVolante(0);
             acelera(0);
