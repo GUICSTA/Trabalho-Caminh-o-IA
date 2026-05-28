@@ -5,46 +5,32 @@ import java.awt.Rectangle;
 import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
 
-
 public class MeuAgente extends Agente {
 
     Color color;
 
     double vel = 100;
-    double ang  = 0;
+    double ang = 0;
 
     double angVolante = 0;
     int volanteinfvalue = 0;
     int volanteRotationSpeed = 120;
 
-    int estado = 0;
-
-    // ── MÁQUINA DE ESTADOS ──
-    // 0 = mover diretamente para (TARGET_X, Y_APPROACH) ignorando ang
-    // 1 = parar e forçar ang = -PI/2
-    // 2 = subir reto até a vaga
-    // 3 = parado na vaga
-    int fase = 0;
-    int ticksParado = 0;
+    public int fase = 0;
 
     double oldx = 0;
     double oldy = 0;
-
     int timeria = 0;
 
-    boolean colidiu = false;
     boolean start = false;
 
     ArrayList<Rectangle> listaDeObstaculos = null;
 
-    Polygon poly  = new Polygon();
+    Polygon poly = new Polygon();
     Polygon poly2 = new Polygon();
 
-    // Ponto de entrada da vaga (centro da abertura 385-415)
-    static final double TARGET_X  = 400;
-    static final double TARGET_Y  = 25;
-    // Ponto de aproximação: alinha X nesta altura antes de subir
-    static final double APPROACH_Y = 180;
+    static final double TARGET_X = 400;
+    static final double TARGET_Y = 15;
 
     public MeuAgente(int x, int y, Color color, ArrayList<Rectangle> listaDeObstaculos) {
         X = x;
@@ -53,9 +39,9 @@ public class MeuAgente extends Agente {
         this.listaDeObstaculos = listaDeObstaculos;
 
         poly.addPoint(-20, -10);
-        poly.addPoint(25,  -10);
-        poly.addPoint(25,   10);
-        poly.addPoint(-20,  10);
+        poly.addPoint(25, -10);
+        poly.addPoint(25, 10);
+        poly.addPoint(-20, 10);
     }
 
     @Override
@@ -67,7 +53,7 @@ public class MeuAgente extends Agente {
         double oldang = ang;
 
         angVolante += volanteinfvalue * volanteRotationSpeed * DiffTime / 1000.0;
-        if (angVolante >  90) angVolante =  90;
+        if (angVolante > 90) angVolante = 90;
         if (angVolante < -90) angVolante = -90;
 
         if (timeria > 100) {
@@ -83,8 +69,8 @@ public class MeuAgente extends Agente {
 
         poly2 = new Polygon(poly.xpoints, poly.ypoints, poly.npoints);
         for (int i = 0; i < poly2.npoints; i++) {
-            double x  = poly2.xpoints[i];
-            double y  = poly2.ypoints[i];
+            double x = poly2.xpoints[i];
+            double y = poly2.ypoints[i];
             double x2 = x * Math.cos(ang) - y * Math.sin(ang);
             double y2 = y * Math.cos(ang) + x * Math.sin(ang);
             poly2.xpoints[i] = (int) x2;
@@ -117,26 +103,22 @@ public class MeuAgente extends Agente {
     }
 
     public void rodaVolante(int v) {
-        if (v > 0)      volanteinfvalue =  1;
+        if (v > 0) volanteinfvalue = 1;
         else if (v < 0) volanteinfvalue = -1;
-        else            volanteinfvalue =  0;
+        else volanteinfvalue = 0;
     }
 
     public void acelera(int v) {
         if (v > 0) {
-            if (Y < 60)       vel = 10;   // rasteja na entrada da vaga
+            if (Y < 60) vel = 10;
             else if (Y < 150) vel = 30;
-            else              vel = 100;
+            else vel = 100;
         } else if (v < 0) {
             vel = -50;
         } else {
             vel = 0;
         }
     }
-
-    // =====================================================================
-    //  FUNÇÕES DE PERTINÊNCIA FUZZY
-    // =====================================================================
 
     private double rampUp(double x, double a, double b) {
         if (x <= a) return 0.0;
@@ -154,159 +136,87 @@ public class MeuAgente extends Agente {
         return (b - x) / (b - m);
     }
 
-    private double trap(double x, double a, double b, double c, double d) {
-        if (x <= a || x >= d) return 0.0;
-        if (x >= b && x <= c) return 1.0;
-        if (x < b) return (x - a) / (b - a);
-        return (d - x) / (d - c);
-    }
-
-    // =====================================================================
-    //  DEFUZZIFICAÇÃO
-    // =====================================================================
-
-    private int defuzzVolante(double muEsq, double muReto, double muDir) {
-        double num = (-1.0) * muEsq + 0.0 * muReto + 1.0 * muDir;
-        double den = muEsq + muReto + muDir;
-        if (den == 0) return 0;
-        double out = num / den;
-        if (out < -0.3) return -1;
-        if (out >  0.3) return  1;
-        return 0;
-    }
-
-    private int defuzzAcel(double muRe, double muPara, double muFrente) {
-        double num = (-1.0) * muRe + 0.0 * muPara + 1.0 * muFrente;
-        double den = muRe + muPara + muFrente;
-        if (den == 0) return 0;
-        double out = num / den;
-        if (out < -0.3) return -1;
-        if (out >  0.3) return  1;
-        return 0;
-    }
-
-    // =====================================================================
-    //  IA PRINCIPAL
-    // =====================================================================
-
     public void calculaIA(int DiffTime) {
         if (!start) return;
 
-        // ── FASE 0: navegar até o ponto de aproximação ────────────────
-        // Usa atan2 para o alvo real (TARGET_X, APPROACH_Y), não apenas X.
-        // Isso garante que o caminhão sempre tem um angAlvo válido,
-        // independente do ang atual.
-        if (fase == 0) {
-            double dx = TARGET_X - X;
-            double dy = APPROACH_Y - Y;
-            double dist = Math.sqrt(dx * dx + dy * dy);
+        double dx = TARGET_X - X;
+        double dy = Y - TARGET_Y;
 
-            // Alvo dinâmico: enquanto longe, navega em linha reta para o ponto
-            double angAlvo = Math.atan2(dy, dx);
+        // POSIÇÃO X -> ÂNGULO ALVO BÁSICO
+        double muMuitoEsq = rampUp(dx, 60, 120);
+        double muEsq = tri(dx, 0, 60, 120);
+        double muCentro = tri(dx, -60, 0, 60);
+        double muDir = tri(dx, -120, -60, 0);
+        double muMuitoDir = rampDown(dx, -120, -60);
 
-            double erroAng = angAlvo - ang;
-            while (erroAng >  Math.PI) erroAng -= 2 * Math.PI;
-            while (erroAng < -Math.PI) erroAng += 2 * Math.PI;
+        double angMuitoEsq = -0.1;
+        double angEsq = -Math.PI / 4.0;
+        double angCentro = -Math.PI / 2.0;
+        double angDir = -3.0 * Math.PI / 4.0;
+        double angMuitoDir = -Math.PI + 0.1;
 
-            // Funções de pertinência para erro angular
-            double muAngMuitoEsq = rampDown(erroAng, -2.0, -0.6);
-            double muAngEsq      = tri(erroAng, -2.0, -0.6, -0.1);
-            double muAngFrente   = tri(erroAng, -0.3,  0.0,  0.3);
-            double muAngDir      = tri(erroAng,  0.1,  0.6,  2.0);
-            double muAngMuitoDir = rampUp(erroAng,  0.6,  2.0);
+        double angAlvo = muMuitoEsq * angMuitoEsq +
+                muEsq * angEsq +
+                muCentro * angCentro +
+                muDir * angDir +
+                muMuitoDir * angMuitoDir;
 
-            double muVolanteEsq  = Math.max(muAngMuitoEsq, muAngEsq * 0.8);
-            double muVolanteReto = muAngFrente;
-            double muVolanteDir  = Math.max(muAngMuitoDir, muAngDir * 0.8);
+        //MURO
+        double muPerigoMuro = rampDown(Y, 40, 150);
+        double muDesalinhadoX = rampUp(Math.abs(dx), 15, 60);
 
-            // Sempre anda — se o erro for grande, gira enquanto anda
-            double muAcelFrente = (dist > 25) ? 1.0 : 0.5;
-            double muAcelPara   = (dist <= 25) ? 1.0 : 0.0;
-            double muAcelRe     = 0;
+        double fatorFuga = muPerigoMuro * muDesalinhadoX;
+        double angFuga = (dx > 0) ? -0.05 : (-Math.PI + 0.05);
 
-            rodaVolante(defuzzVolante(muVolanteEsq, muVolanteReto, muVolanteDir));
-            acelera(defuzzAcel(muAcelRe, muAcelPara, muAcelFrente));
+        angAlvo = (fatorFuga * angFuga) + ((1.0 - fatorFuga) * angAlvo);
 
-            // Chegou perto do ponto de aproximação
-            if (dist < 30) {
-                vel = 0;
-                angVolante = 0;
-                volanteinfvalue = 0;
-                ticksParado = 0;
-                fase = 1;
-            }
-            return;
-        }
+        // ERRO DE ÂNGULO
+        double erroAng = angAlvo - ang;
+        while (erroAng > Math.PI) erroAng -= 2 * Math.PI;
+        while (erroAng < -Math.PI) erroAng += 2 * Math.PI;
 
-        // ── FASE 1: parar e forçar ang = -PI/2 ────────────────────────
-        if (fase == 1) {
+        double muAngMuitoEsq = rampDown(erroAng, -0.6, -0.2);
+        double muAngEsq = tri(erroAng, -0.6, -0.2, 0.0);
+        double muAngFrente = tri(erroAng, -0.2, 0.0, 0.2);
+        double muAngDir = tri(erroAng, 0.0, 0.2, 0.6);
+        double muAngMuitoDir = rampUp(erroAng, 0.2, 0.6);
+
+        double volanteDesejado = muAngMuitoEsq * (-90) +
+                muAngEsq * (-45) +
+                muAngFrente * (0) +
+                muAngDir * (45) +
+                muAngMuitoDir * (90);
+
+        // VELOCIDADE
+        double muMuitoLonge = rampUp(dy, 90, 150);
+        double muLonge = tri(dy, 40, 90, 150);
+        double muPerto = tri(dy, 10, 40, 90);
+        double muChegou = rampDown(dy, 10, 40);
+
+        double velDesejada = muMuitoLonge * 100 +
+                muLonge * 60 +
+                muPerto * 25 +
+                muChegou * 0;
+
+        double muCurvaFechada = rampUp(Math.abs(erroAng), 0.2, 0.8);
+        vel = velDesejada * (1.0 - (muCurvaFechada * 0.75));
+
+        volanteDesejado = volanteDesejado * (1.0 - muChegou);
+
+        if (angVolante < volanteDesejado - 5) rodaVolante(1);
+        else if (angVolante > volanteDesejado + 5) rodaVolante(-1);
+        else rodaVolante(0);
+
+        // FREIO DE MÃO
+        double muEstacionadoPerfeitamente = muChegou * muCentro;
+
+        if (muEstacionadoPerfeitamente > 0.80) {
             vel = 0;
-            angVolante = 0;
-            volanteinfvalue = 0;
-            ticksParado++;
-
-            if (ticksParado >= 3) {
-                ang = -Math.PI / 2;
-                fase = 2;
-            }
-            return;
-        }
-
-        // ── FASE 2: subir reto para a vaga (fuzzy) ────────────────────
-        if (fase == 2) {
-            double dx   = TARGET_X - X;
-            double dy   = TARGET_Y - Y;
-            double dist = Math.sqrt(dx * dx + dy * dy);
-
-            double angAlvo = -Math.PI / 2;
-            double erroAng = angAlvo - ang;
-            while (erroAng >  Math.PI) erroAng -= 2 * Math.PI;
-            while (erroAng < -Math.PI) erroAng += 2 * Math.PI;
-
-            double muAngMuitoEsq = rampDown(erroAng, -1.5, -0.3);
-            double muAngEsq      = tri(erroAng, -1.5, -0.3, -0.05);
-            double muAngFrente   = tri(erroAng, -0.15, 0.0,  0.15);
-            double muAngDir      = tri(erroAng,  0.05,  0.3,  1.5);
-            double muAngMuitoDir = rampUp(erroAng,  0.3,  1.5);
-
-            double muVolanteEsq  = Math.max(muAngMuitoEsq, muAngEsq * 0.8);
-            double muVolanteReto = muAngFrente;
-            double muVolanteDir  = Math.max(muAngMuitoDir, muAngDir * 0.8);
-
-            if (Math.abs(dx) > 5) {
-                double muXEsq = rampDown(dx, -30, -3); // Ativa se o caminhão está muito à direita
-                double muXDir = rampUp(dx,    3,  30); // Ativa se o caminhão está muito à esquerda
-
-                // Se está à direita, vira para a ESQUERDA
-                muVolanteEsq = Math.max(muVolanteEsq, muXEsq * 1.0);
-                // Se está à esquerda, vira para a DIREITA
-                muVolanteDir = Math.max(muVolanteDir, muXDir * 1.0);
-            }
-
-            double muAcelFrente = (dist > 15) ? 0.8 : 0.0;
-            double muAcelPara   = (dist <= 15) ? 1.0 : 0.0;
-            double muAcelRe     = 0;
-
-            rodaVolante(defuzzVolante(muVolanteEsq, muVolanteReto, muVolanteDir));
-            acelera(defuzzAcel(muAcelRe, muAcelPara, muAcelFrente));
-
-            // Parada: Y próximo do topo e X dentro da abertura real (385-415)
-            // Chegou: centro do caminhão passou pela linha da barreira (Y=40)
-            // A barreira ocupa Y=0..40; o caminhão entra quando Y < 42
-            boolean dentroAbertura = (X > 384 && X < 416);
-            boolean entrou         = (Y < 42);
-            if (dentroAbertura && entrou) {
-                fase = 3;
-            }
-            return;
-        }
-
-        // ── FASE 3: parado na vaga ─────────────────────────────────────
-        if (fase == 3) {
             rodaVolante(0);
-            acelera(0);
-            vel = 0;
             start = false;
+            fase = 3;
+        } else {
+            fase = 2;
         }
     }
 }

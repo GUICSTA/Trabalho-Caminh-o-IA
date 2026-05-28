@@ -39,4 +39,4 @@ public class Main extends JFrame {
         gp.startGame();
     }
 
-} // end of WormChaseApplet class
+}

@@ -56,8 +56,6 @@ public class GamePanel extends Canvas implements Runnable
                 if (keyCode == KeyEvent.VK_SPACE) {
                     myTruck.start = !myTruck.start;
 
-                    // Ao ligar a IA, reseta a máquina de estados e o volante
-                    // para que o agente sempre recomece pela Fase 0
                     if (myTruck.start) {
                         myTruck.fase = 0;
                         myTruck.angVolante = 0;
@@ -184,7 +182,6 @@ public class GamePanel extends Canvas implements Runnable
 
     private void gameUpdate(long DiffTime)
     {
-        // Controle manual quando a IA está desligada (freio de mão puxado)
         if (!myTruck.start) {
             if (UP)        myTruck.acelera(+1);
             else if (DOWN) myTruck.acelera(-1);
@@ -194,7 +191,6 @@ public class GamePanel extends Canvas implements Runnable
             else if (RIGHT)  myTruck.rodaVolante(+1);
             else             myTruck.rodaVolante(0);
         }
-        // Quando start==true a IA (calculaIA) assume o controle
 
         myTruck.SimulaSe((int) DiffTime);
     }
