@@ -142,7 +142,7 @@ public class MeuAgente extends Agente {
         double dx = TARGET_X - X;
         double dy = Y - TARGET_Y;
 
-        // POSIÇÃO X -> ÂNGULO ALVO BÁSICO
+        // POSIÇÃO X -> ÂNGULO ALVO
         double muMuitoEsq = rampUp(dx, 60, 120);
         double muEsq = tri(dx, 0, 60, 120);
         double muCentro = tri(dx, -60, 0, 60);
@@ -207,7 +207,7 @@ public class MeuAgente extends Agente {
         else if (angVolante > volanteDesejado + 5) rodaVolante(-1);
         else rodaVolante(0);
 
-        // FREIO DE MÃO
+
         double muEstacionadoPerfeitamente = muChegou * muCentro;
 
         if (muEstacionadoPerfeitamente > 0.80) {

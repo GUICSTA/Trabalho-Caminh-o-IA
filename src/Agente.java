@@ -1,11 +1,11 @@
-import java.awt.Graphics2D;
+    import java.awt.Graphics2D;
 
 
-public abstract class Agente {
+    public abstract class Agente {
 
-    double X,Y;
+        double X,Y;
 
-    public abstract void SimulaSe(int DiffTime);
-    public abstract void DesenhaSe(Graphics2D dbg,int XMundo,int YMundo);
+        public abstract void SimulaSe(int DiffTime);
+        public abstract void DesenhaSe(Graphics2D dbg,int XMundo,int YMundo);
 
-}
+    }
