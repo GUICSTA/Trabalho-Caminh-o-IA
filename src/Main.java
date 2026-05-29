@@ -34,7 +34,7 @@ public class Main extends JFrame {
         this.pack();
         this.setResizable(false);
         this.setVisible(true);
-        //resize(805, 505);
+        resize(805, 505);
 
         gp.startGame();
     }
